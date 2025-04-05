@@ -1,1 +1,14 @@
+fastapi
+uvicorn
+pydantic
+scikit-learn
+pandas
+numpy
+textblob
+jinja2
+requests
+python-multipart
+sqlalchemy
+ipykernel  
+python-dotenv  
 
