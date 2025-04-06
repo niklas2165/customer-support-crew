@@ -26,7 +26,8 @@ This diagram reflects the actual file structure, control flow, and interactions 
 
 ## Repository Structure 
 
-<pre> ```text customer-support-crew/
+``` 
+customer-support-crew/
 ├── .github/
 │   └── workflows/
 │       └── respond.yml               # GitHub Actions workflow for daily pipeline execution
@@ -52,7 +53,8 @@ This diagram reflects the actual file structure, control flow, and interactions 
 ├── daily_pipeline.py                # Entry point for daily CI/CD pipeline
 ├── initial_ingestion.py             # Loads historical data into the SQLite database
 ├── requirements.txt                 # Project dependencies
-├── train_model.py                   # Trains the intent classification model``` </pre>
+├── train_model.py                   # Trains the intent classification model
+```
 
 ---
 
