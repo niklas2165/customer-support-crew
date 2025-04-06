@@ -5,6 +5,7 @@ import datetime
 
 DB_PATH = os.path.join('database', 'support_emails.db')
 
+
 def run(email, intent, urgency, response):
     """
     Log the processed email details into the database and update the frontend.
@@ -17,8 +18,7 @@ def run(email, intent, urgency, response):
     logging.info("Logger Agent: Logging processed email...")
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    
-    # Update the existing email record with new information.
+
     update_sql = """
     UPDATE support_emails
     SET intent_label = ?, urgency_score = ?, response = ?
@@ -28,17 +28,18 @@ def run(email, intent, urgency, response):
     conn.commit()
     conn.close()
     logging.info("Logger Agent: Email logged successfully.")
-    
-    # Update the frontend (e.g., append to docs/index.html).
+
+    # Update the frontend (insert inside HTML structure)
     update_frontend(email, intent, urgency, response)
+
 
 def update_frontend(email, intent, urgency, response):
     """
-    Append the latest email processing result to an HTML file.
+    Insert the latest email processing result into the HTML file within the logs container.
     """
     logging.info("Logger Agent: Updating frontend...")
     html_entry = f"""
-    <div class="email-log">
+    <div class=\"email-log\">
       <h3>Email ID: {email.get("email_id")}</h3>
       <p><strong>Intent:</strong> {intent}</p>
       <p><strong>Urgency:</strong> {urgency}</p>
@@ -46,7 +47,17 @@ def update_frontend(email, intent, urgency, response):
       <p><em>Logged on: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</em></p>
     </div>
     """
-    with open("docs/index.html", "a") as f:
-        f.write(html_entry)
-    logging.info("Logger Agent: Frontend updated.")
 
+    with open("docs/index.html", "r") as f:
+        content = f.read()
+
+    # Insert before a special comment marker in the logs div
+    updated_content = content.replace(
+        "<!-- End of logs -->",
+        html_entry + "\n<!-- End of logs -->"
+    )
+
+    with open("docs/index.html", "w") as f:
+        f.write(updated_content)
+
+    logging.info("Logger Agent: Frontend updated.")
