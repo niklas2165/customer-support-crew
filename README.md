@@ -12,6 +12,10 @@ The aim of this project is to automate the customer support process for a solopr
 
 This project not only demonstrates the practical application of NLP in an automated support system but also serves as a solid foundation for further extensions such as integrating advanced LLMs or multi-agent orchestration frameworks like CrewAI.
 
+## 📊 Pipeline Overview
+
+![Pipeline Diagram](docs/pipeline_diagram.png)
+
 ---
 
 ## 2. Technical Details of Each Pipeline Component
