@@ -39,7 +39,7 @@ def update_frontend(email, intent, urgency, response):
     """
     logging.info("Logger Agent: Updating frontend...")
     html_entry = f"""
-    <div class=\"email-log\">
+    <div class="log-entry">
       <h3>Email ID: {email.get("email_id")}</h3>
       <p><strong>Intent:</strong> {intent}</p>
       <p><strong>Urgency:</strong> {urgency}</p>
@@ -51,7 +51,7 @@ def update_frontend(email, intent, urgency, response):
     with open("docs/index.html", "r") as f:
         content = f.read()
 
-    # Insert before a special comment marker in the logs div
+    # Insert before the special comment marker
     updated_content = content.replace(
         "<!-- End of logs -->",
         html_entry + "\n<!-- End of logs -->"
