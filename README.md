@@ -154,6 +154,9 @@ This stage is executed daily by `daily_pipeline.py`, which sequentially calls ea
   - Pushes changes using `GITHUB_TOKEN`.
 
 ---
+
+## Frontend
+
 ![Frontend](docs/frontend.jpg)
 
 ### Step 4: Frontend Monitoring
