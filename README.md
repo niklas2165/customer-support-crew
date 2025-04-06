@@ -20,92 +20,122 @@ This project not only demonstrates the practical application of NLP in an automa
 
 ## 2. Technical Details of Each Pipeline Component
 
-### 2.1 Data Ingestion and Storage
+### Step 1: One-Time Setup – Data Ingestion and Model Training
+
+#### 2.1 Historical Data and Storage
 
 - **Historical Data Generation:**  
-  A dataset of 100 realistic support emails is generated in JSON format. Each entry contains structured metadata and content, including `email_id`, `timestamp`, `sender`, `subject`, `body`, `intent_label`, `urgency_score`, and `response`. While all fields are present, only a subset is used during training and inference (see 2.2 and 2.3).
+  A dataset of 100 realistic support emails is generated in JSON format. Each entry contains structured metadata and content, including `email_id`, `timestamp`, `sender`, `subject`, `body`, `intent_label`, `urgency_score`, and `response`. While all fields are present, only a subset is used during training and inference (see below).
 
 - **Database Schema (`database/schema.sql`):**  
   The SQLite schema creates a `support_emails` table mirroring the JSON structure. SQLite was chosen for local development and easy integration into a CI/CD pipeline.
 
 - **Ingestion Script (`initial_ingestion.py`):**  
-  This one-time script loads the full JSON dataset into the database for model training. During daily operations, ingestion is handled by a separate agent described below.
+  This one-time script loads the full JSON dataset into the database for model training. It is not part of the daily pipeline.
 
-### 2.2 Model Training
+#### 2.2 Model Training
 
 - **Preprocessing and Training (`train_model.py`):**  
-  The classifier is trained exclusively on the `subject` and `body` fields of each email — which are concatenated and lowercased before TF-IDF vectorization. Critically, even though the historical dataset includes `intent_label`, `urgency_score`, and `response`, only `intent_label` is used as the target label, and no leakage occurs from `urgency_score` or `response` during training.
+  The classifier is trained exclusively on the `subject` and `body` fields of each email — concatenated and lowercased before TF-IDF vectorization. Critically, even though the dataset includes `intent_label`, `urgency_score`, and `response`, only `intent_label` is used as the target label. There is **no leakage** from urgency or response.
 
-- **Pipeline Construction:**  
-  A Scikit-learn pipeline is constructed using TF-IDF and Logistic Regression — selected for interpretability, efficiency, and suitability for small, multi-class datasets.
+- **Model Pipeline:**  
+  A Scikit-learn pipeline is built using TF-IDF and Logistic Regression — chosen for its speed, interpretability, and robustness for small datasets.
 
 - **Model Evaluation:**  
-  A test/train split is used to assess the model, with per-class precision, recall, and F1-scores displayed to evaluate balance across intent types.
+  A test/train split is used to validate model performance. `classification_report` output includes precision, recall, and F1 for each intent.
 
 - **Model Persistence:**  
-  The trained model is saved as `intent_classifier.pkl` for downstream use during inference.
+  The final model is saved as `models/intent_classifier.pkl` and used during daily inference.
 
-### 2.3 Modular Agent Architecture
+---
 
-- **Agent-Based Design:**  
-  Each stage of the daily pipeline is encapsulated in its own Python module within `agents/`. This modular design ensures flexibility and encourages reuse and expansion.
+### Step 2: Daily Pipeline Execution
 
-- **Agents:**
-  - **Email Ingestion Agent (`agents/email_ingestion.py`):**  
-    Queries the live API hosted on Render (`/new_email`) to fetch one randomized email per day. Even though the returned object includes fields like `intent_label`, `urgency_score`, and `response`, only the raw `subject` and `body` are used downstream — ensuring the system recomputes these values independently. If the email is not yet in the database, it is inserted using a unique `email_id`.
-  
-  - **Intent Classifier Agent (`agents/intent_classifier.py`):**  
-    Loads the previously trained model and classifies the intent based solely on `subject` + `body`. This ensures that the model is never influenced by metadata like sender, timestamp, or pre-annotated labels.
+#### 2.3 Modular Agent-Based Pipeline
 
-  - **Priority Scorer Agent (`agents/priority_scorer.py`):**  
-    Scores urgency using a mix of keyword heuristics and sentiment analysis via TextBlob. The score ranges from 0–2 and reflects the emotional intensity or criticality of the message — independent of any precomputed values.
+This stage is executed daily by `daily_pipeline.py`, which sequentially calls each agent via the orchestrator (`crew.py`).
 
-  - **Response Drafter Agent (`agents/response_drafter.py`):**  
-    Generates a structured, rule-based response using templates keyed to the predicted intent. These templates use natural tone and prefilled instructions, simulating a first-pass support response.
+**Execution order and logic:**
 
-  - **Logger Agent (`agents/logger.py`):**  
-    Commits the fully processed email — including predicted intent, scored urgency, and drafted response — to the SQLite database using `INSERT OR REPLACE`. It also appends a formatted HTML block into `docs/index.html` before the comment marker `<!-- End of logs -->`.
+1. **Email Ingestion Agent (`agents/email_ingestion.py`):**  
+   - Calls the FastAPI endpoint hosted on Render (`/new_email`).
+   - Returns a randomized email with full metadata.
+   - Inserts the raw `subject` and `body` into the database **if not already present** using `email_id` as key.
+   - *Only the subject and body are used downstream*.
 
-- **Orchestration (`crew.py`):**  
-  This script orchestrates the agents linearly to simulate CrewAI-style modularity. Though simple and synchronous, it enables end-to-end processing and provides a clear structure for future expansion into true multi-agent workflows.
+2. **Intent Classifier Agent (`agents/intent_classifier.py`):**  
+   - Loads the trained model (`intent_classifier.pkl`).
+   - Predicts the email’s intent using the subject + body.
+   - Ignores pre-annotated intent from the API to avoid leakage.
 
-### 2.4 API Implementation
+3. **Priority Scorer Agent (`agents/priority_scorer.py`):**  
+   - Assigns an urgency score (0–2) using sentiment analysis via TextBlob and keyword heuristics.
+   - The urgency score is calculated independently from the one in the JSON.
 
-- **FastAPI Endpoint (`api/main.py`):**  
-  The `/new_email` endpoint randomly selects an email from the original 100-row dataset. Each request returns a realistic customer email object including metadata. While the returned object contains annotations, the pipeline recomputes intent and urgency scores from scratch using only the `subject` and `body`.
+4. **Response Drafter Agent (`agents/response_drafter.py`):**  
+   - Generates a first-draft reply using rule-based templates linked to the predicted intent.
+   - Templates are polite, customizable, and domain-specific.
 
-- **Deployment on Render:**  
-  The API is publicly accessible at:  
-  **[https://customer-support-crew.onrender.com/new_email](https://customer-support-crew.onrender.com/new_email)**  
-  This endpoint acts as the data source for daily pipeline runs.
+5. **Logger Agent (`agents/logger.py`):**  
+   - Updates the `support_emails.db` table using `INSERT OR REPLACE`.
+   - Writes a log entry to `docs/index.html` using string insertion just before `<!-- End of logs -->` inside `<div id="logs">`.
+   - Ensures **daily traceability** via database and dashboard.
 
-### 2.5 Daily Pipeline and Automation
+#### 2.4 Orchestration
 
-- **Daily Pipeline (`daily_pipeline.py`):**  
-  Runs the orchestrator (`crew.run_pipeline()`), which fetches one new email from the API, stores it if not already in the database, classifies it, scores urgency, generates a response, logs the result, and updates the static frontend.
+- **`crew.py`:**  
+  - Acts as a lightweight orchestrator, simulating CrewAI-like modularity.
+  - Executes each agent sequentially.
+  - Designed to be easily replaceable with a proper task routing engine in the future.
 
-- **CI/CD Integration with GitHub Actions (`.github/workflows/respond.yml`):**
-  - **Scheduled Runs:** Cron trigger set to run daily at 07:30 UTC.
-  - **Dependency Installation:** Uses `pip install -r requirements.txt`.
-  - **Frontend Commit:** Commits only if `docs/index.html` changes.
-  - **Permissions:** GitHub Actions is granted write access to push changes using `GITHUB_TOKEN`.
+---
 
-### 2.6 Frontend for Monitoring
+### Step 3: API Service and CI/CD Automation
 
-- **Static Frontend (`docs/index.html`):**  
-  A clean, card-based layout renders each processed email in reverse chronological order. The frontend is served through GitHub Pages and updated automatically once per day.
+#### 2.5 API Endpoint
 
-- **Update Logic:**  
-  The `Logger Agent` uses simple HTML string replacement to inject new logs just before the marker `<!-- End of logs -->` within `<div id="logs">`. This ensures the dashboard grows incrementally with each pipeline run.
+- **FastAPI App (`api/main.py`):**  
+  - Serves `/new_email` with randomized samples from the original 100-email dataset.
+  - Used as the **live data source** for the daily pipeline.
+  - Hosted at:  
+    [https://customer-support-crew.onrender.com/new_email](https://customer-support-crew.onrender.com/new_email)
 
-- **Live Frontend URL:**  
-  View the public dashboard at:  
-  **[https://niklas2165.github.io/customer-support-crew/](https://niklas2165.github.io/customer-support-crew/)**
+- **Returned Object:**  
+  While the full email object contains pre-annotated fields, only `subject` and `body` are used in actual processing — ensuring reproducibility and avoiding training bias.
 
-### 2.7 Database Utilities
+#### 2.6 GitHub Actions
 
-- **db_utils.py:**  
-  A placeholder module that can eventually encapsulate common database operations like querying logs, updating schema versions, or exporting CSV backups.
+- **CI/CD Workflow (`.github/workflows/respond.yml`):**  
+  - Runs once daily via `cron` at 07:30 UTC.
+  - Installs dependencies from `requirements.txt`.
+  - Executes `daily_pipeline.py`.
+  - Commits the updated `docs/index.html` if it has changed.
+  - Pushes changes using `GITHUB_TOKEN`.
+
+---
+
+### Step 4: Frontend Monitoring
+
+#### 2.7 Static Dashboard
+
+- **Frontend HTML (`docs/index.html`):**  
+  - A simple, styled log showing all processed emails.
+  - Includes email ID, predicted intent, urgency score, generated response, and timestamp.
+  - Updated automatically by the Logger Agent.
+
+- **Insertion Logic:**  
+  - Log entries are inserted just before the comment `<!-- End of logs -->`.
+  - This ensures new entries appear **above** older ones in the list.
+
+- **Public URL:**  
+  View the live dashboard at:  
+  [https://niklas2165.github.io/customer-support-crew/](https://niklas2165.github.io/customer-support-crew/)
+
+#### 2.8 Database Utilities
+
+- **`db_utils.py`:**  
+  - Placeholder module.
+  - Future home for query helpers, schema migrations, or backup/export scripts.
 
 ---
 
@@ -113,38 +143,44 @@ This project not only demonstrates the practical application of NLP in an automa
 
 ### 3.1 Model Evaluation
 
-- **Performance Report:**  
-  The model is evaluated using a stratified train/test split and `classification_report`. Scores are reviewed per intent label to identify underrepresented or poorly predicted classes.
+- **Valid Split & Metrics:**  
+  Model evaluated using stratified train/test split. Outputs include classification report with macro/micro-average scores.
 
-- **Training Validity:**  
-  Only raw text (subject + body) is used as input, and only `intent_label` as the output, ensuring a clean supervised learning setup with no leakage from response or urgency fields.
+- **Leakage Prevention:**  
+  Only raw text (`subject + body`) is used as input, and only `intent_label` is the output target. No urgency or response fields influence the model.
 
 ### 3.2 Runtime Monitoring
 
-- **Agent Logs:**  
-  All agents log key actions using Python’s `logging` module. These logs are visible locally or via GitHub Actions during each run.
+- **Agent Logging:**  
+  Each agent logs key actions using Python’s built-in logging module.
 
-- **Visual Feedback (Frontend):**  
-  The HTML dashboard (`docs/index.html`) shows what email was processed, its intent, urgency, and generated response — with a timestamp for auditing.
+- **HTML Frontend:**  
+  Displays real-time log of most recent pipeline run — great for visibility and debugging.
 
-- **Database Audit Trail:**  
-  Every email — regardless of whether it came from the API or historical set — is logged in `support_emails.db`, providing a searchable archive.
+- **SQLite Recordkeeping:**  
+  Database contains full logs of all emails and their latest classification, urgency, and response — acting as a traceable archive.
 
 ### 3.3 CI/CD Monitoring
 
-- **Run Visibility:**  
-  Each GitHub Actions run exposes full logs under "Actions", allowing inspection of any agent step.
+- **GitHub Actions Logs:**  
+  Each run logs the full workflow, with step-by-step detail for troubleshooting.
 
-- **Auto-Deployment:**  
-  If `docs/index.html` is updated, the change is automatically committed and served through GitHub Pages.
+- **Auto Deployment:**  
+  If changes are made to the frontend log, they're committed and served via GitHub Pages.
 
 ---
 
 ## 4. Conclusion
 
-This MLOps pipeline automates solopreneur support by combining modular agents, ML-based intent classification, rule-based reasoning, and CI/CD deployment into a daily feedback loop. It adheres to good design practices by avoiding label leakage, tracking state via DB, and maintaining a clear separation between training and inference logic.
+This MLOps pipeline automates customer support by combining:
 
-As designed, the system is lightweight, interpretable, and production-aware — but ready to evolve toward more intelligent architectures (e.g., LLM-based RAG, CrewAI orchestration, IMAP inbox integration).
+- Lightweight training and inference  
+- Modular orchestration with isolated agents  
+- External data ingestion from a hosted API  
+- CI/CD and GitHub-based automation  
+- Daily updates and monitoring via a public dashboard
+
+It is interpretable, robust, and **ready for future upgrades** — including CrewAI, RAG pipelines, or inbox scraping.
 
 ---
 
