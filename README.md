@@ -1,4 +1,4 @@
-# Technical Report: Solopreneur Customer Support Automation
+# Technical Report: Customer Support Automation
 
 ## 1. Introduction and Aim
 
