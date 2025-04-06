@@ -31,28 +31,28 @@ customer-support-crew/
 │   └── workflows/
 │       └── respond.yml               # GitHub Actions workflow for daily pipeline execution
 ├── agents/
-│   ├── email_ingestion.py            # Fetches new emails from the API
-│   ├── intent_classifier.py          # Predicts intent using trained model
-│   ├── priority_scorer.py            # Assigns urgency scores to emails
-│   ├── response_drafter.py           # Drafts responses based on predicted intent
-│   └── logger.py                     # Logs processed emails and updates frontend
+│   ├── email_ingestion.py           # Fetches new emails from the API
+│   ├── intent_classifier.py         # Predicts intent using trained model
+│   ├── priority_scorer.py           # Assigns urgency scores to emails
+│   ├── response_drafter.py          # Drafts responses based on predicted intent
+│   └── logger.py                    # Logs processed emails and updates frontend
 ├── api/
-│   └── main.py                       # FastAPI app serving the /new_email endpoint
+│   └── main.py                      # FastAPI app serving the /new_email endpoint
 ├── data/
-│   └── mock_support_emails.json      # Dataset of annotated support emails
+│   └── mock_support_emails.json     # Dataset of annotated support emails
 ├── database/
-│   └── schema.sql                    # SQLite schema definition
+│   └── schema.sql                   # SQLite schema definition
 ├── docs/
-│   └── index.html                    # Static frontend for log monitoring (GitHub Pages)
+│   └── index.html                   # Static frontend for log monitoring (GitHub Pages)
 ├── models/
-│   └── intent_classifier.pkl         # Serialized trained model
-├── .gitignore                        # Ignore venv, model, DB, etc.
-├── README.md                         # Project overview and documentation
-├── crew.py                           # Orchestrator: runs all agents in sequence
-├── daily_pipeline.py                 # Entry point for daily CI/CD pipeline
-├── initial_ingestion.py              # Loads historical data into the SQLite database
-├── requirements.txt                  # Project dependencies
-├── train_model.py                    # Trains the intent classification model
+│   └── intent_classifier.pkl        # Serialized trained model
+├── .gitignore                       # Ignore venv, model, DB, etc.
+├── README.md                        # Project overview and documentation
+├── crew.py                          # Orchestrator: runs all agents in sequence
+├── daily_pipeline.py                # Entry point for daily CI/CD pipeline
+├── initial_ingestion.py             # Loads historical data into the SQLite database
+├── requirements.txt                 # Project dependencies
+├── train_model.py                   # Trains the intent classification model
 
 ---
 
