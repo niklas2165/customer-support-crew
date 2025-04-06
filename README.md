@@ -14,6 +14,8 @@ This project not only demonstrates the practical application of NLP in an automa
 
 ## Pipeline Overview
 
+This diagram reflects the actual file structure, control flow, and interactions between modules, agents, the API, and the database.
+
 ![Pipeline Diagram](docs/pipeline_diagram.jpg)
 
 ---
@@ -32,6 +34,8 @@ This project not only demonstrates the practical application of NLP in an automa
 
 - **Ingestion Script (`initial_ingestion.py`):**  
   This one-time script loads the full JSON dataset into the database for model training. It is not part of the daily pipeline.
+
+- **Note:** The same `support_emails.db` file is used for both model training (via historical ingestion) and logging newly processed API emails. This ensures continuity and a full trace of all system activity in one unified location.
 
 #### 2.2 Model Training
 
@@ -95,8 +99,7 @@ This stage is executed daily by `daily_pipeline.py`, which sequentially calls ea
 #### 2.5 API Endpoint
 
 - **FastAPI App (`api/main.py`):**  
-  - Serves `/new_email` with randomized samples from the original 100-email dataset.
-  - Used as the **live data source** for the daily pipeline.
+  - Serves `/new_email` with randomized samples from the same dataset used for training (`mock_support_emails.json`). The full record is served, but only `subject` and `body` are used in daily processing to ensure no leakage.
   - Hosted at:  
     [https://customer-support-crew.onrender.com/new_email](https://customer-support-crew.onrender.com/new_email)
 
@@ -180,7 +183,7 @@ This MLOps pipeline automates customer support by combining:
 - CI/CD and GitHub-based automation  
 - Daily updates and monitoring via a public dashboard
 
-It is interpretable, robust, and **ready for future upgrades** — including CrewAI, RAG pipelines, or inbox scraping.
+It is interpretable, robust, and ready for future upgrades — including CrewAI, RAG pipelines, or inbox scraping.
 
 ---
 
