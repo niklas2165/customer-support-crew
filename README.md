@@ -44,55 +44,55 @@ This project not only demonstrates the practical application of NLP in an automa
 
 - **Agents:**
   - **Email Ingestion Agent (`agents/email_ingestion.py`):**  
-    Fetches new email data by attempting to call a live FastAPI endpoint and falls back to the local JSON file if the API is unreachable.
+    Fetches a new email from the live FastAPI endpoint. If the email is not yet in the database, it inserts it. This guarantees that each processed email is stored for reproducibility and monitoring. This replaced the initial fallback approach with one that consistently pulls live data from the hosted API.
   - **Intent Classifier Agent (`agents/intent_classifier.py`):**  
-    Loads the pre-trained model and classifies the intent of an incoming email based on its subject and body.
+    Loads the pre-trained model and classifies the intent of the email based on its subject and body.
   - **Priority Scorer Agent (`agents/priority_scorer.py`):**  
-    Uses sentiment analysis (via TextBlob) as a heuristic to assign an urgency score.
+    Uses a sentiment-based heuristic (via TextBlob) to assign a 0–2 urgency score.
   - **Response Drafter Agent (`agents/response_drafter.py`):**  
-    Generates a rule-based draft response using pre-defined templates based on the identified intent.
+    Generates a response using simple rule-based templates aligned with the predicted intent.
   - **Logger Agent (`agents/logger.py`):**  
-    Updates the SQLite database with the processed email and appends a new log entry to the frontend (`docs/index.html`). This agent also ensures that a consistent monitoring log is maintained.
+    Uses an `INSERT OR REPLACE` operation to write the processed email (including intent, urgency, and response) to the database. It also injects a new log entry into `docs/index.html` before a predefined marker, ensuring daily updates to the GitHub Pages frontend.
 
 - **Orchestration (`crew.py`):**  
-  A custom orchestrator simulates a CrewAI multi-agent system by sequentially invoking each agent. Although this does not yet use the official CrewAI syntax, it provides a clear, modular structure that can later be extended with asynchronous or parallel processing capabilities.
+  A custom orchestrator simulates a CrewAI multi-agent system by sequentially invoking each agent. Though not using official CrewAI syntax yet, the modular design allows for easy upgrades to more sophisticated frameworks later.
 
 ### 2.4 API Implementation
 
 - **FastAPI Endpoint (`api/main.py`):**  
-  A lightweight API is developed to serve new emails. The endpoint `/new_email` randomly selects an email from the dataset, simulating an incoming email stream.
+  A lightweight FastAPI server exposes the `/new_email` endpoint, which randomly returns a realistic email from a predefined JSON dataset.
 
 - **Deployment on Render:**  
-  The API is deployed on Render, making it live and accessible at:  
+  The API is live at:  
   **[https://customer-support-crew.onrender.com/new_email](https://customer-support-crew.onrender.com/new_email)**  
-  This endpoint is used by the Email Ingestion Agent to fetch new email data dynamically.
+  This endpoint is accessed daily by the pipeline.
 
 ### 2.5 Daily Pipeline and Automation
 
 - **Daily Pipeline (`daily_pipeline.py`):**  
-  A script that calls the orchestrator function (`crew.run_pipeline()`) to process emails end-to-end. This script is designed to be executed manually or automatically.
+  The pipeline fetches one new email from the API, inserts it into the database (if not present), classifies it, scores its urgency, generates a response, updates the database, and finally logs it to the frontend HTML.
 
 - **CI/CD Integration with GitHub Actions (`.github/workflows/respond.yml`):**
-  - **Scheduled Runs:** The pipeline is scheduled to run daily using a cron expression.
-  - **Automation:** The workflow checks out the repository, installs dependencies, runs the daily pipeline, and commits updates to the frontend.
-  - **Frontend Update:** The updated `docs/index.html` file (serving as a monitoring dashboard) is pushed, allowing GitHub Pages to display the latest logs.
+  - **Scheduled Runs:** Configured to run once daily via cron (`7:30 UTC`).
+  - **Automation:** Each run installs dependencies, executes the full pipeline, and pushes the updated HTML to the `docs/` directory.
+  - **Push Permissions:** Workflow permissions are explicitly enabled to allow GitHub Actions to commit and push frontend changes using the built-in `GITHUB_TOKEN`.
 
 ### 2.6 Frontend for Monitoring
 
 - **Static Frontend (`docs/index.html`):**  
-  The frontend is a static HTML page that displays log entries of processed emails. The Logger Agent appends new log entries to this file, which is served via GitHub Pages.
+  Serves as a simple but effective monitoring dashboard. New log entries are inserted by the Logger Agent and pushed via CI/CD to GitHub Pages.
 
-- **User Interface:**  
-  Basic styling and organization are applied to improve readability and provide quick insights into system performance.
+- **Marker-Based Update Logic:**  
+  The Logger Agent inserts new entries before the marker `<!-- End of logs -->` inside a designated container `<div id="logs">`, ensuring that new emails appear chronologically in the frontend.
 
 - **Live Frontend URL:**  
-  The GitHub Pages site is available at:  
+  View the updated logs at:  
   **[https://niklas2165.github.io/customer-support-crew/](https://niklas2165.github.io/customer-support-crew/)**
 
 ### 2.7 Database Utilities
 
 - **db_utils.py:**  
-  Currently, this module is a placeholder for future database utility functions that will centralize common database operations. While not critical to the current workflow, it will facilitate refactoring as the project scales.
+  A placeholder for shared database logic. Can be expanded as the system grows to support reusable queries or database backups.
 
 ---
 
@@ -100,55 +100,47 @@ This project not only demonstrates the practical application of NLP in an automa
 
 ### 3.1 Model Evaluation
 
-- **During Training:**  
-  The training script generates a detailed classification report that includes precision, recall, and F1-scores for each intent class. This helps in identifying potential class imbalances and areas where the model may need improvement.
-  
-- **Test-Train Split:**  
-  The dataset is split into training and testing sets to reliably measure model performance and ensure that the classifier generalizes well to unseen data.
+- **Training Time Metrics:**  
+  The classifier’s accuracy is evaluated using a test/train split and `sklearn`'s classification report.
+
+- **Class Distribution Awareness:**  
+  Performance metrics per intent help identify class imbalance and optimize templates or thresholds accordingly.
 
 ### 3.2 Runtime Monitoring
 
-- **Logging:**  
-  Each agent logs key events (e.g., data ingestion, intent classification, urgency scoring) using Python’s logging module, providing immediate feedback and aiding in debugging.
-  
-- **Frontend Dashboard:**  
-  The static HTML page (`docs/index.html`) acts as a simple dashboard, displaying the latest log entries to monitor daily operations.
-  
-- **Database Records:**  
-  All processed emails are stored in the SQLite database, offering a historical record that can be analyzed for trends and performance issues.
+- **Agent-Level Logging:**  
+  All key steps are logged using `logging`, with output visible locally and in GitHub Actions logs.
+
+- **Frontend Audit Trail:**  
+  `index.html` acts as an audit dashboard that’s updated every day with one new processed email.
+
+- **Data Provenance:**  
+  Every processed email is logged in `support_emails.db`, allowing downstream analysis of trends, misclassifications, and re-training opportunities.
 
 ### 3.3 CI/CD Monitoring
 
-- **GitHub Actions Logs:**  
-  Each scheduled run is logged in GitHub Actions, allowing for monitoring of execution, detection of failures, and troubleshooting of errors.
-  
-- **Version Control:**  
-  Changes to the frontend are committed and pushed automatically, ensuring that the system's state is reproducible and well-documented.
+- **Live Logs:**  
+  Every scheduled run is visible in GitHub Actions with full stdout logs (enabled via `StreamHandler(sys.stdout)` in `daily_pipeline.py`).
 
-### 3.4 Future Enhancements
-
-- **Advanced Dashboarding:**  
-  Consider integrating tools like Grafana or Kibana for visualizing performance metrics over time.
-  
-- **Alerting Mechanisms:**  
-  Implement alerts (via email or messaging platforms) to notify the team of pipeline failures or performance degradation.
-  
-- **Feedback Loop for Model Retraining:**  
-  Utilize historical performance data to trigger periodic retraining or fine-tuning of the classifier, ensuring that the model adapts to evolving data trends.
+- **Change Tracking:**  
+  Git commits to the updated frontend serve as version-controlled records of pipeline activity.
 
 ---
 
 ## 4. Conclusion
 
-This project demonstrates a complete, modular pipeline for automating customer support email processing. By integrating data ingestion, model training, agent-based orchestration, API deployment, and CI/CD automation, the system provides an end-to-end solution that is robust and scalable.
+This pipeline automates daily customer support by combining ML, automation, and monitoring in one modular system. The orchestration simulates multi-agent workflows, while the integration of a live API, GitHub Actions, and GitHub Pages ensures full reproducibility and visibility.
 
-The evaluation and monitoring strategy ensures that both immediate feedback (via logs and a simple dashboard) and long-term system health (through CI/CD and database records) are maintained. This modular design not only meets the current requirements but also offers a clear path for future enhancements, including integration with advanced NLP models and true multi-agent orchestration frameworks.
+The system is stable, extensible, and provides a strong foundation for future enhancements including:
+- Retrieval-Augmented Generation (RAG)
+- Full LLM-powered response generation
+- Feedback-driven model retraining
 
 ---
 
 ## 5. Live Demo and Access
 
-- **API Endpoint:**  
+- **API Endpoint (Render):**  
   [https://customer-support-crew.onrender.com/new_email](https://customer-support-crew.onrender.com/new_email)
 
 - **Frontend Dashboard (GitHub Pages):**  
