@@ -157,7 +157,7 @@ This stage is executed daily by `daily_pipeline.py`, which sequentially calls ea
 
 ## Frontend
 
-<img src="docs/frontend.jp" alt="Pipeline Diagram" width="800"/>
+<img src="docs/frontend.jpg" alt="Pipeline Diagram" width="800"/>
 
 ### Step 4: Frontend Monitoring
 
