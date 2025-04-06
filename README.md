@@ -14,7 +14,7 @@ This project not only demonstrates the practical application of NLP in an automa
 
 ## Pipeline Overview
 
-![Pipeline Diagram](docs/pipeline_diagram.png)
+![Pipeline Diagram](docs/pipeline_diagram.jpg)
 
 ---
 
