@@ -1,1 +1,46 @@
+name: Daily Pipeline
+
+on:
+  schedule:
+    - cron: '30 7 * * *'  # Runs every day at 07:30 UTC
+  workflow_dispatch:       # Enables manual run from GitHub UI
+
+jobs:
+  run_pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'  # Match your local Python version
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Daily Pipeline
+        run: |
+          python daily_pipeline.py
+
+      - name: Show changes in index.html
+        run: |
+          git diff docs/index.html || echo "No visible diff"
+
+      - name: Commit Frontend Updates
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add docs/index.html
+          git commit -m "Update frontend with latest email log" || echo "No changes to commit"
+
+      - name: Push Changes
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
 
