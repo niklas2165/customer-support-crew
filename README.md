@@ -1,5 +1,11 @@
 # Technical Report: Customer Support Automation
 
+![MLOps](https://img.shields.io/badge/MLOps-Pipeline-blue)
+![Status](https://img.shields.io/badge/Status-Production--Ready-brightgreen)
+![CI](https://github.com/niklas2165/customer-support-crew/actions/workflows/respond.yml/badge.svg)
+![Frontend](https://img.shields.io/badge/GitHub%20Pages-Live-lightgrey)
+![API](https://img.shields.io/badge/FastAPI-Hosted%20on%20Render-00a676)
+
 ## 1. Introduction and Aim
 
 The aim of this project is to automate the customer support process for a solopreneur by building a modular MLOps pipeline that classifies and responds to incoming customer emails in a consistent, efficient manner. The system is designed to:
