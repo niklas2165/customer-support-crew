@@ -23,6 +23,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Warm up Render API
+        run: |
+          echo "Warming up Render API..."
+          curl --silent --max-time 15 https://customer-support-crew.onrender.com/new_email || echo "API cold start delay expected"
+
       - name: Run Daily Pipeline
         run: python daily_pipeline.py
 
