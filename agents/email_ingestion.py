@@ -10,7 +10,7 @@ def run():
     logging.info("Email Ingestion Agent: Fetching new email...")
 
     try:
-        response = requests.get(API_URL, timeout=10)
+        response = requests.get(API_URL, timeout=60)
         response.raise_for_status()
         email = response.json()
         logging.info("Email Ingestion Agent: Fetched email from API.")
