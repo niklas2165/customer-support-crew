@@ -56,6 +56,25 @@ customer-support-crew/
 ├── train_model.py                   # Trains the intent classification model
 ```
 
+## Getting Started
+
+To run the full pipeline locally:
+
+```bash
+# Set up environment
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# One-time DB setup
+python initial_ingestion.py
+
+# Train the model
+python train_model.py
+
+# Run the pipeline manually
+python daily_pipeline.py
+```
 ---
 
 ## 2. Technical Details of Each Pipeline Component
