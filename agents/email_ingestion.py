@@ -2,7 +2,6 @@ import requests
 import logging
 import sqlite3
 import os
-import time
 
 DB_PATH = os.path.join("database", "support_emails.db")
 API_URL = "https://customer-support-crew.onrender.com/new_email"
@@ -10,50 +9,42 @@ API_URL = "https://customer-support-crew.onrender.com/new_email"
 def run():
     logging.info("Email Ingestion Agent: Fetching new email...")
 
-    max_retries = 3
-    delay = 5  # initial delay in seconds
+    try:
+        response = requests.get(API_URL, timeout=60)
+        response.raise_for_status()
+        email = response.json()
+        logging.info("Email Ingestion Agent: Fetched email from API.")
+    except Exception as e:
+        logging.error(f"Email Ingestion Agent: Error fetching email: {e}")
+        return None
 
-    email = None
-    for attempt in range(max_retries):
-        try:
-            response = requests.get(API_URL, timeout=60)
-            response.raise_for_status()
-            email = response.json()
-            logging.info(f"Email Ingestion Agent: Successfully fetched email on attempt {attempt + 1}.")
-            break  # Exit loop on success
-        except Exception as e:
-            logging.warning(f"Email Ingestion Agent: Attempt {attempt + 1} failed: {e}")
-            if attempt < max_retries - 1:
-                logging.info(f"Retrying in {delay} seconds...")
-                time.sleep(delay)
-                delay *= 2  # exponential backoff
-            else:
-                logging.error("Email Ingestion Agent: All retry attempts failed.")
-                return None
-
-    # Save to database if not already present
+    # Always insert a new row with a new email_id, even if content is reused
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
-    cur.execute("SELECT 1 FROM support_emails WHERE email_id = ?", (email["email_id"],))
-    if not cur.fetchone():
-        cur.execute(
-            """
-            INSERT INTO support_emails (email_id, timestamp, sender, subject, body)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                email["email_id"],
-                email["timestamp"],
-                email["sender"],
-                email["subject"],
-                email["body"],
-            ),
-        )
-        conn.commit()
-        logging.info("Email Ingestion Agent: Inserted new email into DB.")
-    else:
-        logging.info("Email Ingestion Agent: Email already exists in DB.")
+    # Determine next available email_id
+    cur.execute("SELECT MAX(email_id) FROM support_emails")
+    max_id = cur.fetchone()[0] or 0
+    new_id = max_id + 1
 
+    cur.execute(
+        """
+        INSERT INTO support_emails (email_id, timestamp, sender, subject, body)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            new_id,
+            email["timestamp"],
+            email["sender"],
+            email["subject"],
+            email["body"],
+        ),
+    )
+    conn.commit()
     conn.close()
+
+    logging.info(f"Email Ingestion Agent: Inserted email with new ID {new_id}.")
+
+    # Ensure downstream agents receive the new ID
+    email["email_id"] = new_id
     return email
