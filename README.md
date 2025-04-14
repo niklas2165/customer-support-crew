@@ -195,12 +195,6 @@ This stage is executed daily by `daily_pipeline.py`, which sequentially calls ea
   View the live dashboard at:  
   [https://niklas2165.github.io/customer-support-crew/](https://niklas2165.github.io/customer-support-crew/)
 
-#### 2.8 Database Utilities
-
-- **`db_utils.py`:**  
-  - Placeholder module.
-  - Future home for query helpers, schema migrations, or backup/export scripts.
-
 ---
 
 ## 3. Evaluation and Monitoring Strategy
